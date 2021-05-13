@@ -1,0 +1,107 @@
+console.log(pm.globals.has("forgeJS"));
+
+if(!pm.globals.has("forgeJS")){
+        pm.sendRequest("http://localhost:8088/forge.js", function (err, res) {
+        if (err) {
+            console.log(err);}
+        else {
+            // console.log("yes000");
+            pm.globals.set("forgeJS", res.text());
+            }
+})}
+
+
+
+const private_key =`-----BEGIN RSA PRIVATE KEY-----
+MIIBawIBAAJMANJ0G3Jg3t9etL31KYkSi/jAHDS4dqBL52p0f/8iXjlnW/MbFmgk
+0ctLxQ4ks8rCPEubM+lMQkU3o4eienRJTs57H1ZNVwc7dx/2iwIDAQABAksmvKZc
+rEX5uXXtTRYDG/3VoI7QiW+UW8RRzPXOYWYUjNjY65B5P45jW5KeAIOBlUKKyKSl
+F2LDb8pW1VfC2gJEv+k+ShR9d+kJBwECJg68I7JxQHxlqDArFecEjOVsCpZ0dA5b
+0D9gj2Wolz03mgJJoUKBAiYOSFsNY/vFF7LidASihO7wOwlyWhR/dUkmc0qwPEaU
+TCwK1u6bCwImCN4fGZfguDyxsHNtlf9+D+AqqwtggPeuZ0XkZsjEZBofPHs1aoEC
+JgaKyAIrMRDHWS33HIRgxZ2OPTZ+4nK7g2U0XBq7kUyuU2InryWfAiYCGZmjrzFU
+qJmYyi9IMUUhaF+K5dek40GLMbJROQcvKqHa2c0GPw==
+-----END RSA PRIVATE KEY-----`
+
+
+
+
+
+var username = "666";
+
+
+var boundary = '----425734185289857092200961';
+var content_type = 'multipart/form-data; boundary=' + boundary;
+postman.setGlobalVariable("content_type", content_type);
+
+
+var url1 = 'https://test-1301539759.cos.ap-guangzhou.myqcloud.com/public/sample/image_00001.jpg'
+var url2 = 'https://test-1301539759.cos.ap-guangzhou.myqcloud.com/public/sample/image_00002.jpg'
+// var url3 = 'https://test-1301539759.cos.ap-guangzhou.myqcloud.com/public/sample/image_00003.jpg'
+var url3 ='http://argus-sfim.sit.sf-express.com/inc-vsap-clos-sit-1256483133/28/20210329/61/755FD01-10.202.76.228-34-20210329113945-SDK-28.jpg'
+
+
+postman.setGlobalVariable("url1", url1);
+postman.setGlobalVariable("url2", url2);
+postman.setGlobalVariable("url3", url3);
+
+var d = {'img_url1':url1,
+         'img_url2':url2,
+         'img_url3':url3,
+        };
+
+
+var img_url1 = 'img_url1';
+var img_url2 = 'img_url2';
+var img_url3 = 'img_url3';
+
+
+var data = '--'+ boundary +'\r\n' +
+           'Content-Disposition: form-data; name=\"' + img_url1 + '\"' + '\r\n\r\n' + d['img_url1'] + '\r\n' + '--'+ boundary + '\r\n' +
+           'Content-Disposition: form-data; name=\"' + img_url2 + '\"' + '\r\n\r\n' + d['img_url2'] + '\r\n' + '--'+ boundary + '\r\n' +
+           'Content-Disposition: form-data; name=\"' + img_url3 + '\"' + '\r\n\r\n' + d['img_url3'] + '\r\n' +
+           '--' + boundary + '--\r\n';
+
+
+// var requestline = pm.request.method + " /" + pm.request.url.path.join('/') + "?" + pm.request.url.query + " HTTP/1.1";
+var requestline = pm.request.method + " /" + pm.request.url.path.join('/') + " HTTP/1.1";
+//  console.log("requestline: ",requestline);
+
+
+var date = (new Date()).toGMTString();
+postman.setGlobalVariable("X-Date", date);
+
+// 加密方式是：先使用sha256进行加密，然后用base64转码，计算当前GMT时间，使用hmacsha256加密，最后得到base64码，即为签名。
+var temp = CryptoJS.SHA256(data);
+var digest = "SHA-256=" + CryptoJS.enc.Base64.stringify(temp);//stringify()用于从一个对象解析出字符串
+
+// 服务段拿该tmp字符串（从header获取），转[]byte后，与secret进行hash，进而得到签名，进而可以进行比较
+var datastr = "date: " + date + "\n" + requestline + "\n" + "digest: " + digest
+
+// rsa
+eval(pm.globals.get("forgeJS"));
+var privKey = forge.pki.privateKeyFromPem(private_key);
+const md = forge.md.sha256.create();//这里的sha1对应的java的SHA1WithRSA
+
+let _buffer= datastr;
+md.update(_buffer,"utf8");
+let sig = privKey.sign(md);
+
+let signature = forge.util.encode64(sig);
+console.log("Signature :\n " + signature);
+
+
+var ___sign = 'rsa username="' + username + '", algorithm="rsa-sha256", headers="date request-line digest", signature="' + signature + '"';
+// console.log("___sign: " + ___sign);
+postman.setGlobalVariable("digest", digest);
+
+postman.setGlobalVariable("sign", ___sign);
+// console.log("___sign: " + ___sign);
+
+
+// pm.globals.unset("forgeJS");
+// pm.environment.unset("forgeJS");
+
+
+
+
